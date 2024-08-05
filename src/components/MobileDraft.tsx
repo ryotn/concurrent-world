@@ -144,8 +144,10 @@ export const MobileDraft = memo<MobileDraftProps>((props: MobileDraftProps): JSX
             setDraft(draft + `![upload failed]()`)
         } else {
             setDraft(draft.replace(uploadingText, ''))
-            if (imageFile.type.startsWith('video')) {
-                setDraft(draft + `<video controls><source src="${result}" type="${imageFile.type}"></video>`)
+            let type = imageFile.type
+            if (type.startsWith('video')) {
+                if (type.includes('quicktime') || type.includes('mov')) type = 'video/mp4'
+                setDraft(draft + `<video controls><source src="${result}" type="${type}"></video>`)
             } else {
                 setDraft(draft + `![image](${result})`)
             }
