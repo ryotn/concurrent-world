@@ -14,7 +14,13 @@ const _IconButtonWithNumber: ForwardRefRenderFunction<HTMLDivElement, IconButton
             {...props}
             sx={{
                 display: 'flex',
-                alignItems: 'center'
+                flesShrink: 1,
+                flexBasis: '0%',
+                alignItems: 'center',
+                flexGrow: 1,
+                '&:last-child': {
+                    flexGrow: 0 // 最後の要素は伸びない
+                }
             }}
             ref={ref}
             onClick={(e) => {
