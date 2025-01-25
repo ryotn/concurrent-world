@@ -14,7 +14,6 @@ const _IconButtonWithNumber: ForwardRefRenderFunction<HTMLDivElement, IconButton
             {...props}
             sx={{
                 display: 'flex',
-                width: '3rem',
                 alignItems: 'center'
             }}
             ref={ref}
@@ -24,7 +23,7 @@ const _IconButtonWithNumber: ForwardRefRenderFunction<HTMLDivElement, IconButton
         >
             <IconButton
                 sx={{
-                    p: 0.5,
+                    p: 0,
                     color: theme.palette.text.primary,
                     fontSize: '1.5rem'
                 }}
