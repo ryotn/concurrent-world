@@ -455,13 +455,13 @@ function App(): JSX.Element {
                                 <Route path="/:authorID/:messageID" element={<MessagePage />} />
                                 <Route path="/timeline/:id" element={<StreamPage />} />
                                 <Route path="/contacts" element={<ContactsPage />} />
-                                <Route path="/explorer/:tab" element={<Explorer />} />
+                                <Route path="/explorer/:tab" element={<ExplorerPlusPage />} />
+                                <Route path="/classicexplorer/:tab" element={<Explorer />} />
                                 <Route path="/notifications" element={<Notifications />} />
                                 <Route path="/devtool" element={<Devtool />} />
                                 <Route path="/subscriptions" element={<ManageSubsPage />} />
                                 <Route path="/concord/*" element={<ConcordPage />} />
                                 <Route path="/tutorial" element={<Tutorial />} />
-                                <Route path="/explorerplus/:tab" element={<ExplorerPlusPage />} />
                             </Routes>
                         </Paper>
                         <Box

@@ -2,7 +2,10 @@ import { Helmet } from 'react-helmet-async'
 import {
     Avatar,
     Box,
+    Button,
     Card,
+    CardActionArea,
+    CardActions,
     CardMedia,
     Divider,
     Tab,
@@ -13,14 +16,27 @@ import {
     useTheme
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CCWallpaper } from '../components/ui/CCWallpaper'
 import { WatchButton } from '../components/WatchButton'
 import FindInPageIcon from '@mui/icons-material/FindInPage'
 import { CCIconButton } from '../components/ui/CCIconButton'
 import { useTimelineDrawer } from '../context/TimelineDrawer'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { NavLink, useNavigate, useParams } from 'react-router-dom'
 import { useUserDrawer } from '../context/UserDrawer'
+import { MarkdownRenderer } from '../components/ui/MarkdownRenderer'
+import { CCAvatar } from '../components/ui/CCAvatar'
+import CasinoIcon from '@mui/icons-material/Casino'
+import AddIcon from '@mui/icons-material/Add'
+
+import DnsIcon from '@mui/icons-material/Dns'
+import ForumIcon from '@mui/icons-material/Forum'
+import EmojiPeopleIcon from '@mui/icons-material/EmojiPeople'
+import { useClient } from '../context/ClientContext'
+import { useSnackbar } from 'notistack'
+import { type CommunityTimelineSchema, Schemas } from '@concurrent-world/client'
+import { CCEditor } from '../components/ui/cceditor'
+import { CCDrawer } from '../components/ui/CCDrawer'
 
 export interface Domain {
     fqdn: string
@@ -123,13 +139,18 @@ export interface User {
 }
 
 export function ExplorerPlusPage(): JSX.Element {
+    const { tab } = useParams()
+    const { client } = useClient()
+    const { enqueueSnackbar } = useSnackbar()
     const { t } = useTranslation('', { keyPrefix: 'pages.explore' })
     const theme = useTheme()
     const { open } = useTimelineDrawer()
-    const u = useUserDrawer()
+    const userDrawer = useUserDrawer()
 
     const EXPLORER_HOST = 'https://explorer.concrnt.world'
     // const EXPLORER_HOST = 'https://c.kokopi.me'
+    const [drawerOpen, setDrawerOpen] = useState<boolean>(false)
+    const [timelineDraft, setTimelineDraft] = useState<CommunityTimelineSchema>()
 
     const [timelines, setTimelines] = useState<Timeline[]>([])
     const [users, setUsers] = useState<User[]>([])
@@ -140,11 +161,9 @@ export function ExplorerPlusPage(): JSX.Element {
         users: 0
     })
 
-    const [query, setQuery] = useState('')
+    const [timelineQuery, setTimelineQuery] = useState('')
     const [userQuery, setUserQuery] = useState('')
-
-    const [textArea, setTextArea] = useState('')
-    const [userTextArea, setUserTextArea] = useState('')
+    const [rerollCount, reroll] = useState(0)
 
     useEffect(() => {
         fetch(EXPLORER_HOST + '/stat').then(async (result) => {
@@ -154,32 +173,59 @@ export function ExplorerPlusPage(): JSX.Element {
 
     useEffect(() => {
         // fetch
-        if (query === '') {
-            fetch(EXPLORER_HOST + '/timeline?random=true&limit=30').then(async (result) => {
-                setTimelines(await result.json())
-            })
-        } else {
-            fetch(EXPLORER_HOST + '/timeline?limit=30&q=' + query).then(async (result) => {
-                setTimelines(await result.json())
-            })
-        }
+        if (tab !== 'timelines') return
 
+        let unmounted = false
+        const fetcher = setTimeout(() => {
+            if (unmounted) return
+            if (timelineQuery === '') {
+                fetch(EXPLORER_HOST + '/timeline?random=true&limit=20').then(async (result) => {
+                    if (unmounted) return
+                    setTimelines(await result.json())
+                })
+            } else {
+                fetch(EXPLORER_HOST + '/timeline?limit=20&q=' + timelineQuery).then(async (result) => {
+                    if (unmounted) return
+                    setTimelines(await result.json())
+                })
+            }
+        }, 200)
+
+        return () => {
+            unmounted = true
+            clearTimeout(fetcher)
+        }
+    }, [timelineQuery, rerollCount, tab])
+
+    useEffect(() => {
+        if (tab !== 'users') return
+
+        let unmounted = false
+        const fetcher = setTimeout(() => {
+            if (unmounted) return
+
+            if (userQuery === '') {
+                fetch(EXPLORER_HOST + '/user?random=true&limit=20').then(async (result) => {
+                    setUsers(await result.json())
+                })
+            } else {
+                fetch(EXPLORER_HOST + '/user?limit=20&q=' + userQuery).then(async (result) => {
+                    setUsers(await result.json())
+                })
+            }
+        }, 200)
+
+        return () => {
+            unmounted = true
+            clearTimeout(fetcher)
+        }
+    }, [userQuery, rerollCount, tab])
+
+    useEffect(() => {
         fetch(EXPLORER_HOST + '/domain').then(async (result) => {
             setDomains(await result.json())
         })
-    }, [query])
-
-    useEffect(() => {
-        if (userQuery === '') {
-            fetch(EXPLORER_HOST + '/user?random=true&limit=30').then(async (result) => {
-                setUsers(await result.json())
-            })
-        } else {
-            fetch(EXPLORER_HOST + '/user?limit=30&q=' + userQuery).then(async (result) => {
-                setUsers(await result.json())
-            })
-        }
-    }, [userQuery])
+    }, [])
 
     const getDomainFromFQDN = useCallback(
         (fqdn: string | undefined) => {
@@ -188,58 +234,142 @@ export function ExplorerPlusPage(): JSX.Element {
         [domains]
     )
 
-    const { tab } = useParams()
     const navigate = useNavigate()
+
+    const pageRef = useRef<HTMLDivElement>(null)
+
+    const createNewTimeline = (body: CommunityTimelineSchema): void => {
+        client
+            .createCommunityTimeline(body)
+            .then((e: any) => {
+                const id: string = e.id
+                if (id) navigate('/timeline/' + id)
+                else enqueueSnackbar('コミュニティの作成に失敗しました', { variant: 'error' })
+            })
+            .catch((e) => {
+                console.error(e)
+                enqueueSnackbar('コミュニティの作成に失敗しました', { variant: 'error' })
+            })
+    }
 
     return (
         <>
             <Helmet>
-                <title>ExplorerPlus - Concrnt</title>
+                <title>Explorer - Concrnt</title>
             </Helmet>
             <Box
                 sx={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 1,
-                    paddingX: 1,
-                    paddingTop: 1,
+                    padding: 1,
                     background: theme.palette.background.paper,
                     minHeight: '100%',
                     overflowY: 'scroll'
                 }}
+                ref={pageRef}
             >
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-                    <Typography variant="h2">new {t('title')}</Typography>
-                    <Divider sx={{ mb: 1 }} />
+                    <Box sx={{ display: 'flex' }}>
+                        <Typography variant="h2">{t('title')}</Typography>
+                        <Button
+                            variant="text"
+                            component={NavLink}
+                            to={'/classicexplorer/timelines'}
+                            sx={{ ml: 'auto' }}
+                            size={'small'}
+                            disableElevation
+                        >
+                            クラッシック版
+                        </Button>
+                    </Box>
 
-                    <Typography variant={'caption'}>
-                        現在 {stat.domains} のアクティブなドメイン&nbsp;
-                        {stat.timelines} のアクティブなタイムライン&nbsp;
-                        {stat.users} 人のユーザ
-                    </Typography>
+                    <Divider />
 
-                    <Tabs
-                        value={tab}
-                        onChange={(_, v) => {
-                            navigate(`/explorerplus/${v}`)
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'row-reverse',
+                            gap: 1,
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap'
                         }}
                     >
-                        <Tab value={'timelines'} label={'タイムライン'} />
-                        <Tab value={'users'} label={'ユーザー'} />
-                    </Tabs>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexDirection: 'row',
+                                gap: 2,
+                                alignItems: 'center',
+                                justifyContent: 'flex-end'
+                            }}
+                        >
+                            <Typography variant="caption" display="flex" flexDirection="row" gap={1}>
+                                world stat:
+                            </Typography>
+
+                            <Typography variant="caption" display="flex" flexDirection="row" gap={1}>
+                                <DnsIcon fontSize={'small'} /> {stat.domains}
+                            </Typography>
+                            <Typography variant="caption" display="flex" flexDirection="row" gap={1}>
+                                <ForumIcon fontSize={'small'} /> {stat.timelines}
+                            </Typography>
+                            <Typography variant="caption" display="flex" flexDirection="row" gap={1}>
+                                <EmojiPeopleIcon fontSize={'small'} /> {stat.users}
+                            </Typography>
+                        </Box>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexDirection: 'row',
+                                gap: 1,
+                                alignItems: 'center',
+                                justifyContent: 'flex-start',
+                                flex: 1
+                            }}
+                        >
+                            <Tabs
+                                value={tab}
+                                onChange={(_, v) => {
+                                    navigate(`/explorer/${v}`)
+                                }}
+                            >
+                                <Tab value={'timelines'} label={t('communities')} />
+                                <Tab value={'users'} label={t('peoples')} />
+                            </Tabs>
+                        </Box>
+                    </Box>
 
                     {tab === 'timelines' && (
                         <>
-                            <TextField
-                                value={textArea}
-                                onChange={(e) => {
-                                    setTextArea(e.target.value)
-                                    setQuery(e.target.value)
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'flex-end'
                                 }}
-                                label={'ここに入力してタイムラインを検索'}
+                            >
+                                <Button
+                                    variant="text"
+                                    onClick={() => {
+                                        setDrawerOpen(true)
+                                    }}
+                                    startIcon={<AddIcon />}
+                                >
+                                    {t('createNew')}
+                                </Button>
+                            </Box>
+
+                            <TextField
+                                value={timelineQuery}
+                                onChange={(e) => {
+                                    setTimelineQuery(e.target.value)
+                                }}
+                                label={t('searchForCommunities')}
                                 variant={'outlined'}
                                 fullWidth
-                                sx={{ marginY: 1 }}
                             />
 
                             <Box
@@ -249,16 +379,16 @@ export function ExplorerPlusPage(): JSX.Element {
                                     gap: 1
                                 }}
                             >
-                                {timelines.map((t) => {
+                                {timelines.map((tl) => {
                                     return (
-                                        <Card key={t.id} sx={{ display: 'flex', flexDirection: 'row', gap: 1 }}>
+                                        <Card key={tl.id} sx={{ display: 'flex', flexDirection: 'row', gap: 1 }}>
                                             <CardMedia sx={{ height: '100px', width: '100px' }}>
                                                 <CCWallpaper
                                                     sx={{
                                                         height: '100px',
                                                         width: '100px'
                                                     }}
-                                                    override={t._parsedDocument.body.banner}
+                                                    override={tl._parsedDocument.body.banner}
                                                 />
                                             </CardMedia>
                                             <Box
@@ -274,7 +404,7 @@ export function ExplorerPlusPage(): JSX.Element {
                                             >
                                                 <Box flexGrow={1}>
                                                     <Typography variant={'h4'}>
-                                                        {t._parsedDocument.body.name}
+                                                        {tl._parsedDocument.body.name}
                                                     </Typography>
                                                     <Typography
                                                         variant={'caption'}
@@ -285,7 +415,7 @@ export function ExplorerPlusPage(): JSX.Element {
                                                             whiteSpace: 'nowrap'
                                                         }}
                                                     >
-                                                        {t._parsedDocument.body.description}
+                                                        {tl._parsedDocument.body.description}
                                                     </Typography>
                                                 </Box>
                                                 <Box
@@ -297,19 +427,19 @@ export function ExplorerPlusPage(): JSX.Element {
                                                     }}
                                                 >
                                                     <Avatar
-                                                        src={getDomainFromFQDN(t.domainFQDN)?.meta?.logo}
+                                                        src={getDomainFromFQDN(tl.domainFQDN)?.meta?.logo}
                                                         sx={{ height: 18, width: 18 }}
                                                     />
                                                     <Typography variant="caption">
-                                                        {getDomainFromFQDN(t.domainFQDN)?.meta?.nickname}
+                                                        {getDomainFromFQDN(tl.domainFQDN)?.meta?.nickname}
                                                     </Typography>
                                                     <Box sx={{ display: 'flex', gap: 1, marginLeft: 'auto' }}>
-                                                        <WatchButton minimal small timelineID={t.id} />
-                                                        <Tooltip title={'みてみる'} placement={'top'} arrow>
+                                                        <WatchButton minimal small timelineID={tl.id} />
+                                                        <Tooltip title={t('quicklook')} placement={'top'} arrow>
                                                             <CCIconButton
                                                                 size={'small'}
                                                                 onClick={() => {
-                                                                    open(t.id)
+                                                                    open(tl.id)
                                                                 }}
                                                             >
                                                                 <FindInPageIcon />
@@ -322,17 +452,46 @@ export function ExplorerPlusPage(): JSX.Element {
                                     )
                                 })}
                             </Box>
+                            <CCDrawer
+                                open={drawerOpen}
+                                onClose={() => {
+                                    setDrawerOpen(false)
+                                }}
+                            >
+                                <Box p={1}>
+                                    <Typography variant="h3" gutterBottom>
+                                        {t('createNewCommunity.title')}
+                                    </Typography>
+                                    <Typography variant="body1" gutterBottom>
+                                        {t('createNewCommunity.desc1')}
+                                        {client.api.host}
+                                        {t('createNewCommunity.desc2')}
+                                    </Typography>
+                                    <Divider />
+                                    <CCEditor
+                                        schemaURL={Schemas.communityTimeline}
+                                        value={timelineDraft}
+                                        setValue={setTimelineDraft}
+                                    />
+                                    <Button
+                                        onClick={() => {
+                                            if (timelineDraft) createNewTimeline(timelineDraft)
+                                        }}
+                                    >
+                                        作成
+                                    </Button>
+                                </Box>
+                            </CCDrawer>
                         </>
                     )}
                     {tab === 'users' && (
                         <>
                             <TextField
-                                value={userTextArea}
+                                value={userQuery}
                                 onChange={(e) => {
-                                    setUserTextArea(e.target.value)
                                     setUserQuery(e.target.value)
                                 }}
-                                label={'ここに入力してユーザを検索'}
+                                label={t('searchForPeoples')}
                                 variant={'outlined'}
                                 fullWidth
                                 sx={{ marginY: 1 }}
@@ -345,79 +504,95 @@ export function ExplorerPlusPage(): JSX.Element {
                                     gap: 1
                                 }}
                             >
-                                {users.map((t) => {
+                                {users.map((u) => {
                                     return (
-                                        <Card key={t.id} sx={{ display: 'flex', flexDirection: 'row', gap: 1 }}>
-                                            <CardMedia sx={{ height: '100px', width: '100px' }}>
-                                                <CCWallpaper
-                                                    sx={{
-                                                        height: '100px',
-                                                        width: '100px'
-                                                    }}
-                                                    override={t._parsedDocument.body.avatar}
-                                                />
-                                            </CardMedia>
-                                            <Box
+                                        <Card
+                                            key={u.id}
+                                            sx={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'stretch'
+                                            }}
+                                        >
+                                            <CardActionArea
+                                                component={NavLink}
+                                                to={'/' + u.author}
                                                 sx={{
                                                     display: 'flex',
                                                     flexDirection: 'column',
-                                                    paddingY: 0.3,
-                                                    paddingX: 0.5,
-                                                    height: '100%',
-                                                    flex: 1,
-                                                    minWidth: 0
+                                                    alignItems: 'stretch',
+                                                    flex: 1
                                                 }}
                                             >
-                                                <Box flexGrow={1}>
-                                                    <Typography variant={'h4'}>
-                                                        {t._parsedDocument.body.username}
-                                                    </Typography>
-                                                    <Typography
-                                                        variant={'caption'}
+                                                <CCWallpaper
+                                                    sx={{
+                                                        height: '80px'
+                                                    }}
+                                                    override={u._parsedDocument.body.banner}
+                                                />
+                                                <Box position="relative" height={0}>
+                                                    <Box
+                                                        position="relative"
+                                                        component={NavLink}
+                                                        to={'/' + u.author}
                                                         sx={{
-                                                            textOverflow: 'ellipsis',
-                                                            overflow: 'hidden',
-                                                            display: 'block',
-                                                            whiteSpace: 'nowrap'
+                                                            top: '-30px',
+                                                            left: '10px'
                                                         }}
                                                     >
-                                                        {t._parsedDocument.body.description}
+                                                        <CCAvatar
+                                                            alt={u._parsedDocument.body.username}
+                                                            avatarURL={u._parsedDocument.body.avatar}
+                                                            identiconSource={u.author}
+                                                            sx={{
+                                                                width: '60px',
+                                                                height: '60px'
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </Box>
+                                                <Box mt="40px" mx={1}>
+                                                    <Typography variant="h2">
+                                                        {u._parsedDocument.body.username}
                                                     </Typography>
                                                 </Box>
                                                 <Box
                                                     sx={{
-                                                        display: 'flex',
-                                                        gap: 1,
-                                                        alignItems: 'center',
-                                                        marginTop: 'auto'
+                                                        maxHeight: '100px',
+                                                        overflowX: 'hidden',
+                                                        overflowY: 'auto',
+                                                        px: 1,
+                                                        mb: 1,
+                                                        flex: 1
                                                     }}
                                                 >
-                                                    <Avatar
-                                                        src={getDomainFromFQDN(t.fqdn)?.meta?.logo}
-                                                        sx={{ height: 18, width: 18 }}
+                                                    <MarkdownRenderer
+                                                        messagebody={u._parsedDocument.body.description ?? ''}
+                                                        emojiDict={{}}
                                                     />
-                                                    <Typography variant="caption">
-                                                        {getDomainFromFQDN(t.fqdn)?.meta?.nickname}
-                                                    </Typography>
-                                                    <Box sx={{ display: 'flex', gap: 1, marginLeft: 'auto' }}>
-                                                        <WatchButton
-                                                            minimal
-                                                            small
-                                                            timelineID={'world.concrnt.t-home@' + t.author}
-                                                        />
-                                                        <Tooltip title={'みてみる'} placement={'top'} arrow>
-                                                            <CCIconButton
-                                                                size={'small'}
-                                                                onClick={() => {
-                                                                    u.open(t.author)
-                                                                }}
-                                                            >
-                                                                <FindInPageIcon />
-                                                            </CCIconButton>
-                                                        </Tooltip>
-                                                    </Box>
                                                 </Box>
-                                            </Box>
+                                            </CardActionArea>
+                                            <CardActions
+                                                sx={{
+                                                    justifyContent: 'flex-end'
+                                                }}
+                                            >
+                                                <WatchButton
+                                                    minimal
+                                                    small
+                                                    timelineID={'world.concrnt.t-home@' + u.author}
+                                                />
+                                                <Tooltip title={'みてみる'} placement={'top'} arrow>
+                                                    <CCIconButton
+                                                        size={'small'}
+                                                        onClick={() => {
+                                                            userDrawer.open(u.author)
+                                                        }}
+                                                    >
+                                                        <FindInPageIcon />
+                                                    </CCIconButton>
+                                                </Tooltip>
+                                            </CardActions>
                                         </Card>
                                     )
                                 })}
@@ -425,6 +600,21 @@ export function ExplorerPlusPage(): JSX.Element {
                         </>
                     )}
                 </Box>
+                {(tab === 'timelines' && !timelineQuery) ||
+                    (tab === 'users' && !userQuery && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Button
+                                variant={'outlined'}
+                                onClick={() => {
+                                    reroll((prev) => prev + 1)
+                                    pageRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+                                }}
+                                startIcon={<CasinoIcon />}
+                            >
+                                {t('reroll')}
+                            </Button>
+                        </Box>
+                    ))}
             </Box>
         </>
     )
