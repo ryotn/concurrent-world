@@ -265,6 +265,7 @@ export function ExplorerPlusPage(): JSX.Element {
                     padding: 1,
                     background: theme.palette.background.paper,
                     minHeight: '100%',
+                    overflowX: 'hidden',
                     overflowY: 'scroll'
                 }}
                 ref={pageRef}
