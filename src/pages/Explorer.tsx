@@ -211,7 +211,7 @@ export function Explorer(): JSX.Element {
                         <Typography variant="h2">{t('title')}</Typography>
                         <Button
                             component={NavLink}
-                            to={'/explorerplus'}
+                            to={'/explorerplus/timelines'}
                             sx={{ ml: 'auto' }}
                             size={'small'}
                             disableElevation

@@ -461,7 +461,7 @@ function App(): JSX.Element {
                                 <Route path="/subscriptions" element={<ManageSubsPage />} />
                                 <Route path="/concord/*" element={<ConcordPage />} />
                                 <Route path="/tutorial" element={<Tutorial />} />
-                                <Route path="/explorerplus" element={<ExplorerPlusPage />} />
+                                <Route path="/explorerplus/:tab" element={<ExplorerPlusPage />} />
                             </Routes>
                         </Paper>
                         <Box

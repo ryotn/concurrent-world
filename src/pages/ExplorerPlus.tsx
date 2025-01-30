@@ -188,14 +188,8 @@ export function ExplorerPlusPage(): JSX.Element {
         [domains]
     )
 
-    const [tabValue, setTabValue] = useState<'timelines' | 'users'>('timelines')
-    useEffect(() => {
-        const url = new URL(window.location.href)
-        const tab = url.searchParams.get('tab')
-        if (tab === 'users') {
-            setTabValue('users')
-        }
-    }, [])
+    const { tab } = useParams()
+    const navigate = useNavigate()
 
     return (
         <>
@@ -225,20 +219,16 @@ export function ExplorerPlusPage(): JSX.Element {
                     </Typography>
 
                     <Tabs
-                        value={tabValue}
+                        value={tab}
                         onChange={(_, v) => {
-                            setTabValue(v)
-                            // tabクエリをつける
-                            const url = new URL(window.location.href)
-                            url.searchParams.set('tab', v)
-                            window.history.pushState({}, '', url.toString())
+                            navigate(`/explorerplus/${v}`)
                         }}
                     >
                         <Tab value={'timelines'} label={'タイムライン'} />
                         <Tab value={'users'} label={'ユーザー'} />
                     </Tabs>
 
-                    {tabValue === 'timelines' && (
+                    {tab === 'timelines' && (
                         <>
                             <TextField
                                 value={textArea}
@@ -334,7 +324,7 @@ export function ExplorerPlusPage(): JSX.Element {
                             </Box>
                         </>
                     )}
-                    {tabValue === 'users' && (
+                    {tab === 'users' && (
                         <>
                             <TextField
                                 value={userTextArea}
