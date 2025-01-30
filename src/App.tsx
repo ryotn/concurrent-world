@@ -42,6 +42,7 @@ import { LogoutButton } from './components/Settings/LogoutButton'
 import { ConfirmProvider } from './context/Confirm'
 import { type ConcurrentTheme } from './model'
 import { TimelineDrawerProvider } from './context/TimelineDrawer'
+import { UserDrawerProvider } from './context/UserDrawer'
 
 const SwitchMasterToSub = lazy(() => import('./components/SwitchMasterToSub'))
 
@@ -298,9 +299,11 @@ function App(): JSX.Element {
                                 <ConcordProvider>
                                     <EditorModalProvider>
                                         <TimelineDrawerProvider>
-                                            <ConfirmProvider>
-                                                <GlobalActionsProvider>{childs}</GlobalActionsProvider>
-                                            </ConfirmProvider>
+                                            <UserDrawerProvider>
+                                                <ConfirmProvider>
+                                                    <GlobalActionsProvider>{childs}</GlobalActionsProvider>
+                                                </ConfirmProvider>
+                                            </UserDrawerProvider>
                                         </TimelineDrawerProvider>
                                     </EditorModalProvider>
                                 </ConcordProvider>
@@ -458,7 +461,7 @@ function App(): JSX.Element {
                                 <Route path="/subscriptions" element={<ManageSubsPage />} />
                                 <Route path="/concord/*" element={<ConcordPage />} />
                                 <Route path="/tutorial" element={<Tutorial />} />
-                                <Route path="/explorerplus" element={<ExplorerPlusPage />} />
+                                <Route path="/explorerplus/:tab" element={<ExplorerPlusPage />} />
                             </Routes>
                         </Paper>
                         <Box
