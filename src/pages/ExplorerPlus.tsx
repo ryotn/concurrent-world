@@ -376,7 +376,7 @@ export function ExplorerPlusPage(): JSX.Element {
                             <Box
                                 sx={{
                                     display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(384px, 1fr))',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                                     gap: 1
                                 }}
                             >
@@ -501,7 +501,7 @@ export function ExplorerPlusPage(): JSX.Element {
                             <Box
                                 sx={{
                                     display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(384px, 1fr))',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                                     gap: 1
                                 }}
                             >
